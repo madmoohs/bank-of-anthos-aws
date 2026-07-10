@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../src/accounts/accounts-db/k8s/overlays/prod
+- ../../src/accounts/contacts/k8s/overlays/prod
+- ../../src/accounts/userservice/k8s/overlays/prod
+
+- ../../src/ledger/ledger-db/k8s/overlays/prod
+- ../../src/ledger/balancereader/k8s/overlays/prod
+- ../../src/ledger/ledgerwriter/k8s/overlays/prod
+- ../../src/ledger/transactionhistory/k8s/overlays/prod
+
+- ../../src/frontend/k8s/overlays/prod
