@@ -17,7 +17,7 @@ resource "aws_route53_record" "app" {
   type    = "A"
   ttl     = 300
 
-  records = [module.eks.alb_dns_name]
+  records = [var.alb_dns_name]
 }
 
 resource "aws_route53_record" "grafana" {
@@ -28,5 +28,5 @@ resource "aws_route53_record" "grafana" {
   type    = "A"
   ttl     = 300
 
-  records = [module.eks.alb_dns_name]
+  records = [var.alb_dns_name]
 }
