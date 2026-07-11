@@ -37,7 +37,6 @@ resource "helm_release" "monitoring_stack" {
       prometheus = {
         prometheusSpec = {
           serviceMonitorSelectorNilUsesHelmValues = false
-          serviceAccountName = "prometheus"
           storageSpec = {
             volumeClaimTemplate = {
               spec = {

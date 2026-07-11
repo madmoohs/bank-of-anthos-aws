@@ -66,7 +66,7 @@ resource "aws_db_instance" "accounts_db" {
   db_subnet_group_name = aws_db_subnet_group.default.name
   vpc_security_group_ids = [aws_security_group.rds.id]
 
-  db_name  = "accounts-db"
+  db_name  = "accountsdb"
   username = "postgres"
   password = var.database_password
 
@@ -93,7 +93,7 @@ resource "aws_db_instance" "ledger_db" {
   db_subnet_group_name = aws_db_subnet_group.default.name
   vpc_security_group_ids = [aws_security_group.rds.id]
 
-  db_name  = "ledger-db"
+  db_name  = "ledgerdb"
   username = "postgres"
   password = var.database_password
 
