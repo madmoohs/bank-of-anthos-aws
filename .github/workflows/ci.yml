@@ -225,7 +225,7 @@ jobs:
           sarif_file: 'checkov-results.sarif'
 
       - name: Run Tfsec scan
-        uses: aquasecurity/tfsec-action@v1
+        uses: aquasecurity/tfsec-action@v1.0.9
         with:
           softfail: false
           format: 'sarif'
