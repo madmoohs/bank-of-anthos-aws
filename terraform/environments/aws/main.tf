@@ -90,10 +90,10 @@ module "rds" {
 
   source = "../../modules/rds"
 
-  project_name     = var.project_name
-  environment      = var.environment
-  vpc_id           = module.vpc.vpc_id
-  private_subnets  = module.vpc.private_subnets
+  project_name      = var.project_name
+  environment       = var.environment
+  vpc_id            = module.vpc.vpc_id
+  private_subnets   = module.vpc.private_subnets
   database_password = var.database_password
 
   eks_node_security_group_id    = module.eks.node_security_group_id
@@ -119,13 +119,13 @@ module "route53" {
 
   source = "../../modules/route53"
 
-  project_name    = var.project_name
-  environment     = var.environment
-  domain_name     = var.domain_name
+  project_name     = var.project_name
+  environment      = var.environment
+  domain_name      = var.domain_name
   grafana_hostname = var.grafana_hostname
 
-  alb_dns_name  = module.eks.alb_dns_name
-  alb_zone_id   = module.eks.alb_zone_id
+  alb_dns_name = module.eks.alb_dns_name
+  alb_zone_id  = module.eks.alb_zone_id
 
   depends_on = [module.eks]
 

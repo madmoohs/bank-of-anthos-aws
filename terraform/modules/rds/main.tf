@@ -57,13 +57,13 @@ resource "aws_security_group" "rds" {
 
 # Accounts Database
 resource "aws_db_instance" "accounts_db" {
-  identifier           = "${lower(var.project_name)}-${var.environment}-accounts-db"
-  engine               = "postgres"
-  engine_version       = "14"
-  instance_class       = "db.t3.micro"
-  allocated_storage    = 20
-  storage_type         = "gp2"
-  db_subnet_group_name = aws_db_subnet_group.default.name
+  identifier             = "${lower(var.project_name)}-${var.environment}-accounts-db"
+  engine                 = "postgres"
+  engine_version         = "14"
+  instance_class         = "db.t3.micro"
+  allocated_storage      = 20
+  storage_type           = "gp2"
+  db_subnet_group_name   = aws_db_subnet_group.default.name
   vpc_security_group_ids = [aws_security_group.rds.id]
 
   db_name  = "accountsdb"
@@ -84,13 +84,13 @@ resource "aws_db_instance" "accounts_db" {
 
 # Ledger Database
 resource "aws_db_instance" "ledger_db" {
-  identifier           = "${lower(var.project_name)}-${var.environment}-ledger-db"
-  engine               = "postgres"
-  engine_version       = "14"
-  instance_class       = "db.t3.micro"
-  allocated_storage    = 20
-  storage_type         = "gp2"
-  db_subnet_group_name = aws_db_subnet_group.default.name
+  identifier             = "${lower(var.project_name)}-${var.environment}-ledger-db"
+  engine                 = "postgres"
+  engine_version         = "14"
+  instance_class         = "db.t3.micro"
+  allocated_storage      = 20
+  storage_type           = "gp2"
+  db_subnet_group_name   = aws_db_subnet_group.default.name
   vpc_security_group_ids = [aws_security_group.rds.id]
 
   db_name  = "ledgerdb"

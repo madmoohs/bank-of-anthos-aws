@@ -16,7 +16,7 @@ resource "helm_release" "monitoring_stack" {
           type = "ClusterIP"
         }
         ingress = {
-          enabled = true
+          enabled          = true
           ingressClassName = "alb"
           annotations = {
             "alb.ingress.kubernetes.io/scheme"       = "internet-facing"

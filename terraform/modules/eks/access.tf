@@ -15,7 +15,7 @@ resource "aws_eks_access_entry" "admin" {
 
 resource "aws_eks_access_policy_association" "admin" {
 
-  cluster_name  = aws_eks_cluster.this.name
+  cluster_name = aws_eks_cluster.this.name
 
   principal_arn = aws_eks_access_entry.admin.principal_arn
 

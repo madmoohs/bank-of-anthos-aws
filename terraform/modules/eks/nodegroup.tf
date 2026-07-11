@@ -17,8 +17,8 @@ resource "aws_eks_node_group" "default" {
   ami_type = "AL2023_x86_64_STANDARD"
 
   labels = {
-  workload = "general"
-  managed-by = "terraform"
+    workload   = "general"
+    managed-by = "terraform"
   }
 
   scaling_config {
@@ -54,6 +54,6 @@ resource "aws_eks_node_group" "default" {
   ]
 
   lifecycle {
-  create_before_destroy = true
+    create_before_destroy = true
   }
 }
