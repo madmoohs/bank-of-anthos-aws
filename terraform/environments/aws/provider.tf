@@ -1,13 +1,3 @@
-terraform {
-  backend "s3" {
-    bucket         = "muhsinntu-bankofanthos-terraform-state"
-    key            = "bank-of-anthos/terraform.tfstate"
-    region         = "ap-southeast-1"
-    encrypt        = true
-    dynamodb_table = "muhsinntu-bankofanthos-terraform-locks"
-  }
-}
-
 provider "aws" {
   region = var.aws_region
 
