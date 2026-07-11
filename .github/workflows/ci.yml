@@ -1,4 +1,4 @@
-name: CI - Build and Test
+name: CI - Build, Test and Security Scan
 
 on:
   pull_request:
@@ -11,7 +11,8 @@ env:
   ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
 
 jobs:
-  build-and-test:
+  build-and-security-scan:
+    name: Build & Security Scan
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -27,6 +28,22 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
 
+      - name: Setup Node.js for Snyk
+        if: steps.check-aws.outputs.aws_configured == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Snyk CLI
+        if: steps.check-aws.outputs.aws_configured == 'true'
+        run: npm install -g snyk
+
+      - name: Snyk auth
+        if: steps.check-aws.outputs.aws_configured == 'true'
+        uses: snyk/actions/setup@v0.4.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
       - name: Configure AWS credentials
         if: steps.check-aws.outputs.aws_configured == 'true'
         uses: aws-actions/configure-aws-credentials@v4
@@ -37,7 +54,6 @@ jobs:
 
       - name: Login to Amazon ECR
         if: steps.check-aws.outputs.aws_configured == 'true'
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Set up Docker Buildx
@@ -70,7 +86,7 @@ jobs:
               ;;
             balancereader)
               echo "PATH=src/ledger/balancereader" >> $GITHUB_OUTPUT
-              echo "DOCKERFILE=src/ledger/balancereader/Dockerfile" >> $GITHUB_OUTPUT
+              echo "DOCKERFILE=Dockerfile" >> $GITHUB_OUTPUT
               ;;
             ledgerwriter)
               echo "PATH=src/ledger/ledgerwriter" >> $GITHUB_OUTPUT
@@ -86,7 +102,7 @@ jobs:
               ;;
           esac
 
-      - name: Build and push Docker image
+      - name: Build Docker image
         if: steps.check-aws.outputs.aws_configured == 'true'
         run: |
           SERVICE=${{ matrix.service }}
@@ -97,6 +113,70 @@ jobs:
             -f ${{ steps.service-paths.outputs.PATH }}/${{ steps.service-paths.outputs.DOCKERFILE }} \
             ${{ steps.service-paths.outputs.PATH }}
 
+      - name: Run Trivy on filesystem
+        if: steps.check-aws.outputs.aws_configured == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '${{ steps.service-paths.outputs.PATH }}'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Upload Trivy filesystem scan results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-fs-results.sarif'
+
+      - name: Run Trivy on Docker image
+        if: steps.check-aws.outputs.aws_configured == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/muhsinntu-bankofanthos/${{ matrix.service }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Upload Trivy image scan results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-image-results.sarif'
+
+      - name: Run Snyk on Python dependencies
+        if: steps.check-aws.outputs.aws_configured == 'true'
+        run: |
+          if [ -f "${{ steps.service-paths.outputs.PATH }}/pyproject.toml" ]; then
+            echo "Scanning ${{ steps.service-paths.outputs.PATH }}"
+            snyk test --org=${{ secrets.SNYK_ORG }} --file=${{ steps.service-paths.outputs.PATH }}/pyproject.toml --sarif > snyk-results.sarif || true
+          fi
+        continue-on-error: true
+
+      - name: Run Snyk on Maven dependencies
+        if: steps.check-aws.outputs.aws_configured == 'true'
+        run: |
+          if [ -f "${{ steps.service-paths.outputs.PATH }}/pom.xml" ]; then
+            echo "Scanning ${{ steps.service-paths.outputs.PATH }}"
+            snyk test --org=${{ secrets.SNYK_ORG }} --file=${{ steps.service-paths.outputs.PATH }}/pom.xml --sarif > snyk-results.sarif || true
+          fi
+        continue-on-error: true
+
+      - name: Upload Snyk scan results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'snyk-results.sarif'
+
+      - name: Push Docker image
+        if: steps.check-aws.outputs.aws_configured == 'true'
+        run: |
+          SERVICE=${{ matrix.service }}
+          ECR_REPOSITORY=${{ env.ECR_REGISTRY }}/muhsinntu-bankofanthos/$SERVICE
+          IMAGE_TAG=${{ github.sha }}
+
           docker push $ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Notify Slack on failure
@@ -106,8 +186,11 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-  lint:
-    runs-on: ubuntu-latest
+  terraform-validate:
+    name: Terraform Validate & Security
+    runs-on: ubuntu-22.04
+    needs: build-and-security-scan
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -117,12 +200,38 @@ jobs:
         with:
           terraform_version: 1.9.0
 
-      - name: Run Terraform fmt
+      - name: Terraform fmt check
         run: terraform fmt -check -recursive
         working-directory: terraform
 
-      - name: Run Terraform validate
+      - name: Terraform init & validate
         run: |
+          cd terraform/environments/aws
           terraform init -backend=false
           terraform validate
-        working-directory: terraform/environments/aws
+
+      - name: Run Checkov scan
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          output_file: 'checkov-results.sarif'
+          output_format: 'sarif'
+          soft_fail: false
+          download_external_modules: true
+
+      - name: Upload Checkov scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'checkov-results.sarif'
+
+      - name: Run Tfsec scan
+        uses: aquasecurity/tfsec-action@v1
+        with:
+          softfail: false
+          format: 'sarif'
+
+      - name: Upload Tfsec scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'results.sarif'
