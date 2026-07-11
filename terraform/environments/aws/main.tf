@@ -103,16 +103,17 @@ module "rds" {
 
 }
 
-module "monitoring" {
-  source = "../../modules/monitoring"
-
-  project_name          = var.project_name
-  environment           = var.environment
-  grafana_admin_password = var.grafana_admin_password
-  grafana_hostname       = var.grafana_hostname
-
-  depends_on = [module.eks]
-}
+# Monitoring deployed via CD workflow (kube-prometheus-stack Helm chart)
+# module "monitoring" {
+#   source = "../../modules/monitoring"
+#
+#   project_name          = var.project_name
+#   environment           = var.environment
+#   grafana_admin_password = var.grafana_admin_password
+#   grafana_hostname       = var.grafana_hostname
+#
+#   depends_on = [module.eks]
+# }
 
 module "route53" {
 
