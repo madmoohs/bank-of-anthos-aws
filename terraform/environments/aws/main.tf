@@ -83,7 +83,6 @@ module "eks" {
   min_size     = var.min_size
   max_size     = var.max_size
 
-  ebs_csi_role_arn = module.iam.ebs_csi_role_arn
 
 }
 

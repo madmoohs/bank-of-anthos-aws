@@ -11,7 +11,7 @@ variable "cluster_name" {
 }
 
 variable "cluster_version" {
-  type = string
+  type    = string
   default = "1.33"
 }
 
@@ -56,7 +56,8 @@ variable "max_size" {
 }
 
 variable "ebs_csi_role_arn" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "certificate_arn" {
