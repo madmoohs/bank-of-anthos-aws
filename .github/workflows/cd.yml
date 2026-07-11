@@ -2,7 +2,7 @@ name: CD - Deploy to EKS (Dev/Staging/Prod)
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, prod, stage ]
 
 env:
   AWS_REGION: ap-southeast-1
