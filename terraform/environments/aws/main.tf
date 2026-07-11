@@ -103,19 +103,16 @@ module "rds" {
 
 }
 
-# Comment out monitoring for now
-# module "monitoring" {
-#
-#   source = "../../modules/monitoring"
-#
-#   project_name          = var.project_name
-#   environment           = var.environment
-#   grafana_admin_password = var.grafana_admin_password
-#   grafana_hostname       = var.grafana_hostname
-#
-#   depends_on = [module.eks]
-#
-# }
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  project_name          = var.project_name
+  environment           = var.environment
+  grafana_admin_password = var.grafana_admin_password
+  grafana_hostname       = var.grafana_hostname
+
+  depends_on = [module.eks]
+}
 
 module "route53" {
 

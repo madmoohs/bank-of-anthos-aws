@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: environment-config
+  namespace: bank-of-anthos
+data:
+  LOCAL_ROUTING_NUM: "123456789"
+  PUB_KEY_PATH: "/tmp/.public-key/public_key.pub"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-api-config
+  namespace: bank-of-anthos
+data:
+  TRANSACTIONS_API_URL: "http://transactionhistory:8080"
+  BALANCES_API_URL: "http://balancereader:8080"
+  CONTACTS_API_URL: "http://contacts:8080"
+  USERSERVICE_API_URL: "http://userservice:8080"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-data-config
+  namespace: bank-of-anthos
+data:
+  DEMO_LOGIN_USERNAME: "testuser"
+  DEMO_LOGIN_PASSWORD: "password"

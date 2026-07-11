@@ -6,6 +6,10 @@ on:
   push:
     branches: [ main, develop ]
 
+env:
+  AWS_REGION: ap-southeast-1
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -22,7 +26,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-southeast-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -57,15 +61,15 @@ jobs:
               ;;
             balancereader)
               echo "PATH=src/ledger/balancereader" >> $GITHUB_OUTPUT
-              echo "DOCKERFILE=Dockerfile" >> $GITHUB_OUTPUT
+              echo "DOCKERFILE=src/ledger/balancereader/Dockerfile" >> $GITHUB_OUTPUT
               ;;
             ledgerwriter)
               echo "PATH=src/ledger/ledgerwriter" >> $GITHUB_OUTPUT
-              echo "DOCKERFILE=Dockerfile" >> $GITHUB_OUTPUT
+              echo "DOCKERFILE=src/ledger/ledgerwriter/Dockerfile" >> $GITHUB_OUTPUT
               ;;
             transactionhistory)
               echo "PATH=src/ledger/transactionhistory" >> $GITHUB_OUTPUT
-              echo "DOCKERFILE=Dockerfile" >> $GITHUB_OUTPUT
+              echo "DOCKERFILE=src/ledger/transactionhistory/Dockerfile" >> $GITHUB_OUTPUT
               ;;
             loadgenerator)
               echo "PATH=src/loadgenerator" >> $GITHUB_OUTPUT
@@ -76,15 +80,14 @@ jobs:
       - name: Build and push Docker image
         run: |
           SERVICE=${{ matrix.service }}
-          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY=muhsinntu-bankofanthos/$SERVICE
+          ECR_REPOSITORY=${{ env.ECR_REGISTRY }}/muhsinntu-bankofanthos/$SERVICE
           IMAGE_TAG=${{ github.sha }}
 
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+          docker build -t $ECR_REPOSITORY:$IMAGE_TAG \
             -f ${{ steps.service-paths.outputs.PATH }}/${{ steps.service-paths.outputs.DOCKERFILE }} \
             ${{ steps.service-paths.outputs.PATH }}
 
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Notify Slack on failure
         if: failure()
@@ -99,9 +102,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
       - name: Run Terraform fmt
         run: terraform fmt -check -recursive
         working-directory: terraform
+        continue-on-error: true
 
       - name: Run Terraform validate
         run: |

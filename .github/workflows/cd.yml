@@ -4,6 +4,11 @@ on:
   push:
     branches: [ main ]
 
+env:
+  AWS_REGION: ap-southeast-1
+  CLUSTER_NAME: MuhsinNTU-bankofanthos
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -18,7 +23,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-southeast-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
@@ -27,7 +32,7 @@ jobs:
 
       - name: Update kubeconfig
         run: |
-          aws eks update-kubeconfig --name MuhsinNTU-bankofanthos --region ap-southeast-1
+          aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
       - name: Install AWS Load Balancer Controller
         run: |
@@ -36,12 +41,13 @@ jobs:
           helm repo add eks https://aws.github.io/eks-charts
           helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
             -n kube-system \
-            --set clusterName=MuhsinNTU-bankofanthos \
+            --set clusterName=${{ env.CLUSTER_NAME }} \
             --set serviceAccount.create=false \
             --set serviceAccount.name=aws-load-balancer-controller \
             --set image.tag=v2.8.1
 
       - name: Install External DNS
+        if: ${{ secrets.EXTERNAL_DNS_ROLE_ARN != '' }}
         run: |
           helm repo add bitnami https://charts.bitnami.com/bitnami
           helm upgrade --install external-dns bitnami/external-dns \
@@ -53,12 +59,13 @@ jobs:
             --set domainFilters[0]=bankofanthos.example.com
 
       - name: Install Cluster Autoscaler
+        if: ${{ secrets.CLUSTER_AUTOSCALER_ROLE_ARN != '' }}
         run: |
           helm repo add autoscaling https://kubernetes.github.io/autoscaler
           helm upgrade --install cluster-autoscaler autoscaling/cluster-autoscaler \
             -n kube-system \
-            --set autoDiscovery.clusterName=MuhsinNTU-bankofanthos \
-            --set awsRegion=ap-southeast-1 \
+            --set autoDiscovery.clusterName=${{ env.CLUSTER_NAME }} \
+            --set awsRegion=${{ env.AWS_REGION }} \
             --set serviceAccount.create=true \
             --set serviceAccount.name=cluster-autoscaler \
             --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=${{ secrets.CLUSTER_AUTOSCALER_ROLE_ARN }}
@@ -83,10 +90,10 @@ jobs:
       - name: Deploy application
         run: |
           # Replace image references in deployments
-          sed -i 's|gcr.io/bank-of-anthos-ci|${{ secrets.ECR_REGISTRY }}/muhsinntu-bankofanthos|g' kubernetes-manifests/*.yaml
+          sed -i "s|gcr.io/bank-of-anthos-ci|${{ env.ECR_REGISTRY }}/muhsinntu-bankofanthos|g" kubernetes-manifests/*.yaml
 
           # Update image tags
-          sed -i "s|:v0.5.11@sha256:.*|:${{ github.sha }}|g" kubernetes-manifests/*.yaml
+          sed -i "s|:v0.5.11@sha256:[a-f0-9]*|:${{ github.sha }}|g" kubernetes-manifests/*.yaml
 
           # Apply manifests
           kubectl apply -f kubernetes-manifests/
@@ -96,10 +103,9 @@ jobs:
           kubectl rollout status deployment/frontend -n bank-of-anthos --timeout=300s
           kubectl rollout status deployment/userservice -n bank-of-anthos --timeout=300s
           kubectl rollout status deployment/contacts -n bank-of-anthos --timeout=300s
-
-      - name: Run database migrations
-        run: |
-          kubectl apply -f extras/cloudsql-multicluster/ -n bank-of-anthos || true
+          kubectl rollout status deployment/balancereader -n bank-of-anthos --timeout=300s
+          kubectl rollout status deployment/ledgerwriter -n bank-of-anthos --timeout=300s
+          kubectl rollout status deployment/transactionhistory -n bank-of-anthos --timeout=300s
 
       - name: Notify deployment status
         if: always()

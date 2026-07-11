@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledgerwriter
+  namespace: bank-of-anthos
+spec:
+  selector:
+    matchLabels:
+      app: ledgerwriter
+  template:
+    metadata:
+      labels:
+        app: ledgerwriter
+    spec:
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+      containers:
+      - name: ledgerwriter
+        image: gcr.io/bank-of-anthos-ci/ledgerwriter:v0.5.11@sha256:d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5
+        env:
+        - name: VERSION
+          value: "v0.5.11"
+        - name: PORT
+          value: "8080"
+        - name: DB_HOST
+          value: "ledger-db"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "ledger-db"
+        - name: DB_USER
+          value: "postgres"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: password
+        envFrom:
+        - configMapRef:
+            name: environment-config
+        - configMapRef:
+            name: service-api-config
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 15
+          timeoutSeconds: 30
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ledgerwriter
+  namespace: bank-of-anthos
+spec:
+  type: ClusterIP
+  selector:
+    app: ledgerwriter
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080

@@ -7,17 +7,39 @@ echo "🚀 Deploying Bank of Anthos to AWS..."
 AWS_REGION="ap-southeast-1"
 CLUSTER_NAME="MuhsinNTU-bankofanthos"
 NAMESPACE="bank-of-anthos"
-ECR_REGISTRY="muhsinntu-bankofanthos"
+ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-# Update kubeconfig
-echo "📝 Updating kubeconfig..."
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+info() { echo -e "${GREEN}[INFO]${NC} $1"; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+# Check prerequisites
+command -v aws >/dev/null 2>&1 || { error "AWS CLI is required"; exit 1; }
+command -v kubectl >/dev/null 2>&1 || { error "kubectl is required"; exit 1; }
+command -v helm >/dev/null 2>&1 || { error "helm is required"; exit 1; }
+command -v docker >/dev/null 2>&1 || { error "docker is required"; exit 1; }
+
+# Get AWS account ID if not set
+if [ -z "$AWS_ACCOUNT_ID" ]; then
+  AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+  ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+fi
+
+# Step 1: Update kubeconfig
+info "Updating kubeconfig..."
 aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
 
-# Install AWS Load Balancer Controller
-echo "🔧 Installing AWS Load Balancer Controller..."
-kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=v2.8.1"
+# Step 2: Install AWS Load Balancer Controller
+info "Installing AWS Load Balancer Controller..."
+kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=v2.8.1" 2>/dev/null || true
 
-helm repo add eks https://aws.github.io/eks-charts
+helm repo add eks https://aws.github.io/eks-charts 2>/dev/null || true
 helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
   -n kube-system \
   --set clusterName=$CLUSTER_NAME \
@@ -26,39 +48,13 @@ helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-contro
   --set image.tag=v2.8.1 \
   --set region=$AWS_REGION
 
-# Install External DNS
-echo "🔧 Installing External DNS..."
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm upgrade --install external-dns bitnami/external-dns \
-  -n external-dns --create-namespace \
-  --set serviceAccount.create=true \
-  --set serviceAccount.name=external-dns \
-  --set provider=aws \
-  --set domainFilters[0]=bankofanthos.example.com \
-  --set awsZoneType=public \
-  --set policy=sync \
-  --set registry=txt \
-  --set txtOwnerId=$CLUSTER_NAME
-
-# Install Cluster Autoscaler
-echo "🔧 Installing Cluster Autoscaler..."
-helm repo add autoscaling https://kubernetes.github.io/autoscaler
-helm upgrade --install cluster-autoscaler autoscaling/cluster-autoscaler \
-  -n kube-system \
-  --set autoDiscovery.clusterName=$CLUSTER_NAME \
-  --set awsRegion=$AWS_REGION \
-  --set serviceAccount.create=true \
-  --set serviceAccount.name=cluster-autoscaler \
-  --set rbac.create=true \
-  --set podAnnotations."iam\.amazonaws\.com/role"=$CLUSTER_NAME-cluster-autoscaler
-
-# Create namespaces
-echo "📁 Creating namespaces..."
+# Step 3: Create namespaces
+info "Creating namespaces..."
 kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 
-# Deploy secrets
-echo "🔐 Deploying secrets..."
+# Step 4: Deploy secrets
+info "Deploying secrets..."
 kubectl create secret generic jwt-key \
   --from-file=key.pem=extras/jwt/jwt-secret.yaml \
   -n $NAMESPACE \
@@ -69,9 +65,22 @@ kubectl create secret generic database-credentials \
   -n $NAMESPACE \
   --dry-run=client -o yaml | kubectl apply -f -
 
-# Deploy monitoring stack
-echo "📊 Deploying monitoring stack..."
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+# Step 5: Deploy application manifests
+info "Deploying application..."
+kubectl apply -f kubernetes-manifests/
+
+# Step 6: Wait for deployments
+info "Waiting for deployments to be ready..."
+kubectl rollout status deployment/frontend -n $NAMESPACE --timeout=300s
+kubectl rollout status deployment/userservice -n $NAMESPACE --timeout=300s
+kubectl rollout status deployment/contacts -n $NAMESPACE --timeout=300s
+kubectl rollout status deployment/balancereader -n $NAMESPACE --timeout=300s
+kubectl rollout status deployment/ledgerwriter -n $NAMESPACE --timeout=300s
+kubectl rollout status deployment/transactionhistory -n $NAMESPACE --timeout=300s
+
+# Step 7: Deploy monitoring stack
+info "Deploying monitoring stack (optional)..."
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
 helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
   -n monitoring \
   --set grafana.adminPassword=GrafanaPassword123! \
@@ -79,54 +88,20 @@ helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
   --set grafana.ingress.ingressClassName=alb \
   --set grafana.service.type=ClusterIP
 
-# Build and push Docker images
-echo "🐳 Building and pushing Docker images..."
-SERVICES=("frontend" "userservice" "contacts" "accounts-db" "ledger-db" "balancereader" "ledgerwriter" "transactionhistory" "loadgenerator")
-
-for service in "${SERVICES[@]}"; do
-  echo "Building $service..."
-  
-  case $service in
-    frontend)
-      SERVICE_PATH="src/frontend"
-      ;;
-    userservice)
-      SERVICE_PATH="src/accounts/userservice"
-      ;;
-    contacts)
-      SERVICE_PATH="src/accounts/contacts"
-      ;;
-    accounts-db)
-      SERVICE_PATH="src/accounts/accounts-db"
-      ;;
-    ledger-db)
-      SERVICE_PATH="src/ledger/ledger-db"
-      ;;
-    balancereader)
-      SERVICE_PATH="src/ledger/balancereader"
-      ;;
-    ledgerwriter)
-      SERVICE_PATH="src/ledger/ledgerwriter"
-      ;;
-    transactionhistory)
-      SERVICE_PATH="src/ledger/transactionhistory"
-      ;;
-    loadgenerator)
-      SERVICE_PATH="src/loadgenerator"
-      ;;
-  esac
-  
-  aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
-  
-  docker build -t $ECR_REGISTRY/$service:latest $SERVICE_PATH
-  docker push $ECR_REGISTRY/$service:latest
-done
-
-# Deploy application using Kubernetes manifests
-echo "🚀 Deploying application..."
-# For AWS deployment, we'll use the frontend service with LoadBalancer
-kubectl apply -f deployments/applications/bank-of-anthos/frontend-aws.yaml -n $NAMESPACE
-
-echo "✅ Deployment completed successfully!"
-echo "🌐 Application URL: $(kubectl get svc frontend -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
-echo "📊 Grafana URL: https://grafana.bankofanthos.example.com"
+echo ""
+info "✅ Deployment completed successfully!"
+echo ""
+echo "=========================================="
+echo " Application Resources:"
+echo "=========================================="
+kubectl get pods -n $NAMESPACE
+echo ""
+echo "=========================================="
+echo " Services:"
+echo "=========================================="
+kubectl get svc -n $NAMESPACE
+echo ""
+echo "=========================================="
+echo " Ingress:"
+echo "=========================================="
+kubectl get ingress -n $NAMESPACE 2>/dev/null || echo "No ingress resources found"

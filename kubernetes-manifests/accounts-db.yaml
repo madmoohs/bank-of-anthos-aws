@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: accounts-db
+  namespace: bank-of-anthos
+spec:
+  selector:
+    matchLabels:
+      app: accounts-db
+  template:
+    metadata:
+      labels:
+        app: accounts-db
+    spec:
+      containers:
+      - name: postgres
+        image: gcr.io/bank-of-anthos-ci/accounts-db:v0.5.11@sha256:8f7a2c1a3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0
+        env:
+        - name: POSTGRES_DB
+          value: "accounts-db"
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: password
+        ports:
+        - containerPort: 5432
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: accounts-db
+  namespace: bank-of-anthos
+spec:
+  type: ClusterIP
+  selector:
+    app: accounts-db
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
