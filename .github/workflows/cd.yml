@@ -9,9 +9,6 @@ env:
   ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
 
 jobs:
-  # ===========================================
-  # Security Scans (Trivy, Snyk, Checkov, Tfsec)
-  # ===========================================
   security-scan:
     name: Security Scans
     runs-on: ubuntu-latest
@@ -127,28 +124,34 @@ jobs:
             --set image.tag=v2.8.1
 
       - name: Install External DNS
-        if: ${{ secrets.EXTERNAL_DNS_ROLE_ARN != '' }}
         run: |
-          helm repo add bitnami https://charts.bitnami.com/bitnami
-          helm upgrade --install external-dns bitnami/external-dns \
-            -n external-dns --create-namespace \
-            --set serviceAccount.create=true \
-            --set serviceAccount.name=external-dns \
-            --set serviceAccount.annotations."eks\\.amazonaws\\.com/role-arn"=${{ secrets.EXTERNAL_DNS_ROLE_ARN }} \
-            --set provider=aws \
-            --set domainFilters[0]=bankofanthos.example.com
+          if [ -n "${{ secrets.EXTERNAL_DNS_ROLE_ARN }}" ]; then
+            helm repo add bitnami https://charts.bitnami.com/bitnami
+            helm upgrade --install external-dns bitnami/external-dns \
+              -n external-dns --create-namespace \
+              --set serviceAccount.create=true \
+              --set serviceAccount.name=external-dns \
+              --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=${{ secrets.EXTERNAL_DNS_ROLE_ARN }} \
+              --set provider=aws \
+              --set domainFilters[0]=bankofanthos.example.com
+          else
+            echo "Skipping External DNS installation - EXTERNAL_DNS_ROLE_ARN not set"
+          fi
 
       - name: Install Cluster Autoscaler
-        if: ${{ secrets.CLUSTER_AUTOSCALER_ROLE_ARN != '' }}
         run: |
-          helm repo add autoscaling https://kubernetes.github.io/autoscaler
-          helm upgrade --install cluster-autoscaler autoscaling/cluster-autoscaler \
-            -n kube-system \
-            --set autoDiscovery.clusterName=${{ steps.config.outputs.CLUSTER_NAME }} \
-            --set awsRegion=${{ env.AWS_REGION }} \
-            --set serviceAccount.create=true \
-            --set serviceAccount.name=cluster-autoscaler \
-            --set serviceAccount.annotations."eks\\.amazonaws\\.com/role-arn"=${{ secrets.CLUSTER_AUTOSCALER_ROLE_ARN }}
+          if [ -n "${{ secrets.CLUSTER_AUTOSCALER_ROLE_ARN }}" ]; then
+            helm repo add autoscaling https://kubernetes.github.io/autoscaler
+            helm upgrade --install cluster-autoscaler autoscaling/cluster-autoscaler \
+              -n kube-system \
+              --set autoDiscovery.clusterName=${{ steps.config.outputs.CLUSTER_NAME }} \
+              --set awsRegion=${{ env.AWS_REGION }} \
+              --set serviceAccount.create=true \
+              --set serviceAccount.name=cluster-autoscaler \
+              --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=${{ secrets.CLUSTER_AUTOSCALER_ROLE_ARN }}
+          else
+            echo "Skipping Cluster Autoscaler installation - CLUSTER_AUTOSCALER_ROLE_ARN not set"
+          fi
 
       - name: Create namespaces
         run: |
@@ -183,7 +186,7 @@ jobs:
       - name: Notify deployment status
         if: always()
         run: |
-          if [ ${{ job.status }} == 'success' ]; then
+          if [ "${{ job.status }}" == 'success' ]; then
             echo "Deployment to ${{ matrix.environment }} completed successfully!"
           else
             echo "Deployment to ${{ matrix.environment }} failed!"
