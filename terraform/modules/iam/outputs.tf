@@ -17,3 +17,15 @@ output "oidc_provider_url" {
 output "ebs_csi_role_arn" {
   value = aws_iam_role.ebs_csi.arn
 }
+
+output "cluster_autoscaler_role_arn" {
+  value = aws_iam_role.cluster_autoscaler.arn
+}
+
+output "external_dns_role_arn" {
+  value = aws_iam_role.external_dns.arn
+}
+
+output "prometheus_role_arn" {
+  value = aws_iam_role.prometheus.arn
+}

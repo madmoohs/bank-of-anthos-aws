@@ -58,3 +58,8 @@ variable "max_size" {
 variable "ebs_csi_role_arn" {
   type = string
 }
+
+variable "certificate_arn" {
+  type      = string
+  sensitive = true
+}

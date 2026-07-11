@@ -113,3 +113,180 @@ resource "aws_iam_role_policy_attachment" "ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 
 }
+
+# Cluster Autoscaler Role
+resource "aws_iam_role" "cluster_autoscaler" {
+
+  name = "${var.project_name}-cluster-autoscaler"
+
+  assume_role_policy = jsonencode({
+
+    Version = "2012-10-17"
+
+    Statement = [
+
+      {
+
+        Effect = "Allow"
+
+        Principal = {
+
+          Federated = var.cluster_oidc_issuer
+
+        }
+
+        Action = "sts:AssumeRoleWithWebIdentity"
+
+        Condition = {
+
+          StringEquals = {
+
+            "${var.cluster_oidc_issuer}:sub" = "system:serviceaccount:kube-system:cluster-autoscaler"
+
+            "${var.cluster_oidc_issuer}:aud" = "sts.amazonaws.com"
+
+          }
+
+        }
+
+      }
+
+    ]
+
+  })
+
+  tags = {
+
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+
+  }
+
+}
+
+resource "aws_iam_role_policy_attachment" "cluster_autoscaler" {
+
+  role       = aws_iam_role.cluster_autoscaler.name
+
+  policy_arn = "arn:aws:iam::aws:policy/AutoScalingFullAccess"
+
+}
+
+# External DNS Role
+resource "aws_iam_role" "external_dns" {
+
+  name = "${var.project_name}-external-dns"
+
+  assume_role_policy = jsonencode({
+
+    Version = "2012-10-17"
+
+    Statement = [
+
+      {
+
+        Effect = "Allow"
+
+        Principal = {
+
+          Federated = var.cluster_oidc_issuer
+
+        }
+
+        Action = "sts:AssumeRoleWithWebIdentity"
+
+        Condition = {
+
+          StringEquals = {
+
+            "${var.cluster_oidc_issuer}:sub" = "system:serviceaccount:external-dns:external-dns"
+
+            "${var.cluster_oidc_issuer}:aud" = "sts.amazonaws.com"
+
+          }
+
+        }
+
+      }
+
+    ]
+
+  })
+
+  tags = {
+
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+
+  }
+
+}
+
+resource "aws_iam_role_policy_attachment" "external_dns" {
+
+  role       = aws_iam_role.external_dns.name
+
+  policy_arn = "arn:aws:iam::aws:policy/AmazonRoute53FullAccess"
+
+}
+
+# Prometheus Role for monitoring
+resource "aws_iam_role" "prometheus" {
+
+  name = "${var.project_name}-prometheus"
+
+  assume_role_policy = jsonencode({
+
+    Version = "2012-10-17"
+
+    Statement = [
+
+      {
+
+        Effect = "Allow"
+
+        Principal = {
+
+          Federated = var.cluster_oidc_issuer
+
+        }
+
+        Action = "sts:AssumeRoleWithWebIdentity"
+
+        Condition = {
+
+          StringEquals = {
+
+            "${var.cluster_oidc_issuer}:sub" = "system:serviceaccount:monitoring:prometheus"
+
+            "${var.cluster_oidc_issuer}:aud" = "sts.amazonaws.com"
+
+          }
+
+        }
+
+      }
+
+    ]
+
+  })
+
+  tags = {
+
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+
+  }
+
+}
+
+resource "aws_iam_role_policy_attachment" "prometheus" {
+
+  role       = aws_iam_role.prometheus.name
+
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+
+}

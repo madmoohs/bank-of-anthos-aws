@@ -62,3 +62,22 @@ variable "max_size" {
   default = 4
 
 }
+
+variable "domain_name" {
+  type        = string
+  description = "Domain name for the application"
+}
+
+variable "database_password" {
+  type      = string
+  sensitive = true
+}
+
+variable "grafana_admin_password" {
+  type      = string
+  sensitive = true
+}
+
+variable "grafana_hostname" {
+  type = string
+}
