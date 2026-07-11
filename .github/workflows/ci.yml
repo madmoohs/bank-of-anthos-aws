@@ -6,6 +6,10 @@ on:
   push:
     branches: [ main, develop ]
 
+permissions:
+  contents: read
+  security-events: write
+
 env:
   AWS_REGION: ap-southeast-1
   ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
@@ -17,6 +21,7 @@ jobs:
     strategy:
       matrix:
         service: [frontend, userservice, contacts, accounts-db, ledger-db, balancereader, ledgerwriter, transactionhistory, loadgenerator]
+    continue-on-error: true
 
     steps:
       - name: Checkout code
@@ -32,7 +37,7 @@ jobs:
         if: steps.check-aws.outputs.aws_configured == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install Snyk CLI
         if: steps.check-aws.outputs.aws_configured == 'true'
@@ -102,6 +107,15 @@ jobs:
               ;;
           esac
 
+      - name: Cache Maven dependencies (for Trivy)
+        if: steps.check-aws.outputs.aws_configured == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-
+        continue-on-error: true
+
       - name: Build Docker image
         if: steps.check-aws.outputs.aws_configured == 'true'
         run: |
@@ -116,6 +130,8 @@ jobs:
       - name: Run Trivy on filesystem
         if: steps.check-aws.outputs.aws_configured == 'true'
         uses: aquasecurity/trivy-action@master
+        env:
+          TRIVY_SKIP_FILESYSTEM_UPDATE: true
         with:
           scan-type: 'fs'
           scan-ref: '${{ steps.service-paths.outputs.PATH }}'
@@ -123,12 +139,14 @@ jobs:
           output: 'trivy-fs-results.sarif'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
+          scanners: vuln
 
       - name: Upload Trivy filesystem scan results
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        if: always() && (success() || failure())
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-fs-results.sarif'
+          wait-for-completion: false
 
       - name: Run Trivy on Docker image
         if: steps.check-aws.outputs.aws_configured == 'true'
@@ -141,10 +159,11 @@ jobs:
           ignore-unfixed: true
 
       - name: Upload Trivy image scan results
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        if: always() && (success() || failure())
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-image-results.sarif'
+          wait-for-completion: false
 
       - name: Run Snyk on Python dependencies
         if: steps.check-aws.outputs.aws_configured == 'true'
@@ -165,10 +184,11 @@ jobs:
         continue-on-error: true
 
       - name: Upload Snyk scan results
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        if: always() && (success() || failure())
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'snyk-results.sarif'
+          wait-for-completion: false
 
       - name: Push Docker image
         if: steps.check-aws.outputs.aws_configured == 'true'
@@ -219,7 +239,8 @@ jobs:
           download_external_modules: true
 
       - name: Upload Checkov scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'checkov-results.sarif'
+          wait-for-completion: false

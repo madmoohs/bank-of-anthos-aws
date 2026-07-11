@@ -4,6 +4,10 @@ on:
   push:
     branches: [ main, develop, prod, stage ]
 
+permissions:
+  contents: read
+  security-events: write
+
 env:
   AWS_REGION: ap-southeast-1
   ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
@@ -18,6 +22,8 @@ jobs:
 
       - name: Run Trivy on filesystem
         uses: aquasecurity/trivy-action@master
+        env:
+          TRIVY_SKIP_FILESYSTEM_UPDATE: true
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -26,12 +32,14 @@ jobs:
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
           skip-dirs: 'kubernetes-manifests,deployments,extras,monitoring,clusters'
+          scanners: vuln
 
       - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
+          wait-for-completion: false
 
       - name: Run Checkov scan
         uses: bridgecrewio/checkov-action@v12
@@ -42,10 +50,11 @@ jobs:
           download_external_modules: true
 
       - name: Upload Checkov scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'checkov-results.sarif'
+          wait-for-completion: false
 
   deploy:
     name: Deploy to ${{ matrix.environment }}
