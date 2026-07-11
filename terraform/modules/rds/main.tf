@@ -16,11 +16,11 @@ data "aws_ami" "amazon_linux" {
 
 # DB Subnet Group
 resource "aws_db_subnet_group" "default" {
-  name       = "${var.project_name}-${var.environment}-db-subnet-group"
+  name       = "${lower(var.project_name)}-${var.environment}-db-sg"
   subnet_ids = var.private_subnets
 
   tags = {
-    Name        = "${var.project_name}-${var.environment}-db-subnet-group"
+    Name        = "${lower(var.project_name)}-${var.environment}-db-sg"
     Project     = var.project_name
     Environment = var.environment
     ManagedBy   = "Terraform"
@@ -57,7 +57,7 @@ resource "aws_security_group" "rds" {
 
 # Accounts Database
 resource "aws_db_instance" "accounts_db" {
-  identifier           = "${var.project_name}-${var.environment}-accounts-db"
+  identifier           = "${lower(var.project_name)}-${var.environment}-accounts-db"
   engine               = "postgres"
   engine_version       = "14"
   instance_class       = "db.t3.micro"
@@ -75,7 +75,7 @@ resource "aws_db_instance" "accounts_db" {
   publicly_accessible     = false
 
   tags = {
-    Name        = "${var.project_name}-${var.environment}-accounts-db"
+    Name        = "${lower(var.project_name)}-${var.environment}-accounts-db"
     Project     = var.project_name
     Environment = var.environment
     ManagedBy   = "Terraform"
@@ -84,7 +84,7 @@ resource "aws_db_instance" "accounts_db" {
 
 # Ledger Database
 resource "aws_db_instance" "ledger_db" {
-  identifier           = "${var.project_name}-${var.environment}-ledger-db"
+  identifier           = "${lower(var.project_name)}-${var.environment}-ledger-db"
   engine               = "postgres"
   engine_version       = "14"
   instance_class       = "db.t3.micro"
@@ -102,7 +102,7 @@ resource "aws_db_instance" "ledger_db" {
   publicly_accessible     = false
 
   tags = {
-    Name        = "${var.project_name}-${var.environment}-ledger-db"
+    Name        = "${lower(var.project_name)}-${var.environment}-ledger-db"
     Project     = var.project_name
     Environment = var.environment
     ManagedBy   = "Terraform"

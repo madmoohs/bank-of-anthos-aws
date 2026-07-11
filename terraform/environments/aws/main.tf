@@ -108,9 +108,10 @@ module "route53" {
 
   source = "../../modules/route53"
 
-  project_name = var.project_name
-  environment  = var.environment
-  domain_name  = var.domain_name
+  project_name   = var.project_name
+  environment    = var.environment
+  domain_name    = var.domain_name
+  grafana_hostname = var.grafana_hostname
 
   alb_dns_name  = module.eks.alb_dns_name
   alb_zone_id   = module.eks.alb_zone_id

@@ -62,4 +62,5 @@ variable "ebs_csi_role_arn" {
 variable "certificate_arn" {
   type      = string
   sensitive = true
+  default   = ""
 }

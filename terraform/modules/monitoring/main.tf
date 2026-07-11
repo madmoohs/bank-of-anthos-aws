@@ -6,7 +6,7 @@ resource "helm_release" "monitoring_stack" {
   chart            = "kube-prometheus-stack"
   namespace        = "monitoring"
   create_namespace = true
-  version          = ">=48.0.0"
+  # version          = ">=48.0.0"
 
   values = [
     yamlencode({
@@ -37,6 +37,7 @@ resource "helm_release" "monitoring_stack" {
       prometheus = {
         prometheusSpec = {
           serviceMonitorSelectorNilUsesHelmValues = false
+          serviceAccountName = "prometheus"
           storageSpec = {
             volumeClaimTemplate = {
               spec = {
@@ -72,35 +73,4 @@ resource "helm_release" "monitoring_stack" {
     })
   ]
 
-  set {
-    name  = "prometheus.prometheusSpec.serviceAccountName"
-    value = "prometheus"
-  }
-
-  depends_on = [module.eks]
-}
-
-# Create monitoring namespace
-resource "kubernetes_namespace" "monitoring" {
-  metadata {
-    name = "monitoring"
-    labels = {
-      name = "monitoring"
-    }
-  }
-
-  depends_on = [module.eks]
-}
-
-# Service account for Prometheus
-resource "kubernetes_service_account" "prometheus" {
-  metadata {
-    name      = "prometheus"
-    namespace = "monitoring"
-    annotations = {
-      "eks.amazonaws.com/role-arn" = module.iam.prometheus_role_arn
-    }
-  }
-
-  depends_on = [module.eks]
 }

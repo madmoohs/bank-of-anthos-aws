@@ -6,7 +6,6 @@ resource "aws_lb" "main" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = var.public_subnets
-  vpc_id             = var.vpc_id
 
   enable_deletion_protection = false
 
@@ -63,10 +62,10 @@ resource "aws_security_group" "alb" {
 # Target Group for frontend service
 resource "aws_lb_target_group" "frontend" {
 
-  name     = "${var.project_name}-${var.environment}-frontend-tg"
-  port     = 8080
-  protocol = "HTTP"
-  vpc_id   = var.vpc_id
+  name         = "${var.project_name}-${var.environment}-tg"
+  port         = 8080
+  protocol     = "HTTP"
+  vpc_id       = var.vpc_id
 
   target_type = "ip"
 
@@ -113,8 +112,10 @@ resource "aws_lb_listener" "http" {
 
 }
 
-# HTTPS Listener
+# HTTPS Listener (only if certificate is provided)
 resource "aws_lb_listener" "https" {
+
+  count = var.certificate_arn != "" ? 1 : 0
 
   load_balancer_arn = aws_lb.main.arn
   port              = 443
