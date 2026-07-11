@@ -13,6 +13,7 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    if: secrets.AWS_ACCESS_KEY_ID != ''
     strategy:
       matrix:
         service: [frontend, userservice, contacts, accounts-db, ledger-db, balancereader, ledgerwriter, transactionhistory, loadgenerator]
