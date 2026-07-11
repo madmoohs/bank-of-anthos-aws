@@ -60,6 +60,4 @@ resource "aws_eks_addon" "ebs_csi" {
     aws_eks_node_group.default
   ]
 
-  service_account_role_arn = var.ebs_csi_role_arn
-
 }
