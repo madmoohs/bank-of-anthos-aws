@@ -223,15 +223,3 @@ jobs:
         if: always()
         with:
           sarif_file: 'checkov-results.sarif'
-
-      - name: Run Tfsec scan
-        uses: aquasecurity/tfsec-action@v1.0.9
-        with:
-          softfail: false
-          format: 'sarif'
-
-      - name: Upload Tfsec scan results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'results.sarif'
