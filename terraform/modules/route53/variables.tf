@@ -7,7 +7,13 @@ variable "environment" {
 }
 
 variable "domain_name" {
-  type = string
+  type    = string
+  default = ""
+}
+
+variable "grafana_hostname" {
+  type    = string
+  default = ""
 }
 
 variable "alb_dns_name" {
@@ -15,9 +21,5 @@ variable "alb_dns_name" {
 }
 
 variable "alb_zone_id" {
-  type = string
-}
-
-variable "grafana_hostname" {
   type = string
 }

@@ -83,7 +83,6 @@ module "eks" {
   min_size     = var.min_size
   max_size     = var.max_size
 
-
 }
 
 module "rds" {
@@ -103,6 +102,20 @@ module "rds" {
 
 }
 
+# Comment out monitoring for now
+# module "monitoring" {
+#
+#  source = "../../modules/monitoring"
+#
+#  project_name          = var.project_name
+#  environment           = var.environment
+#  grafana_admin_password = var.grafana_admin_password
+#  grafana_hostname       = var.grafana_hostname
+#
+#  depends_on = [module.eks]
+#
+# }
+
 module "route53" {
 
   source = "../../modules/route53"
@@ -118,102 +131,3 @@ module "route53" {
   depends_on = [module.eks]
 
 }
-
-module "monitoring" {
-
-  source = "../../modules/monitoring"
-
-  project_name          = var.project_name
-  environment           = var.environment
-  grafana_admin_password = var.grafana_admin_password
-  grafana_hostname       = var.grafana_hostname
-
-  depends_on = [module.eks]
-
-}
-
-/* 
-
-module "oidc" {
-
-  source = "../../modules/oidc"
-
-  project_name = var.project_name
-  environment  = var.environment
-
-  cluster_oidc_issuer = module.eks.cluster_oidc_issuer
-
-}
-
-module "irsa" {
-
-  source = "../../modules/irsa"
-
-  project_name = var.project_name
-  environment  = var.environment
-
-  oidc_provider_arn = module.oidc.oidc_provider_arn
-
-  oidc_provider_url = module.oidc.oidc_provider_url
-
-  service_accounts = {
-
-    aws-load-balancer-controller = {
-
-      namespace = "kube-system"
-
-      serviceaccount = "aws-load-balancer-controller"
-
-      policy_arns = [
-        "arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess"
-      ]
-
-    }
-
-    external-dns = {
-
-      namespace = "external-dns"
-
-      serviceaccount = "external-dns"
-
-      policy_arns = [
-
-        "arn:aws:iam::aws:policy/AmazonRoute53FullAccess"
-
-      ]
-
-    }
-
-    cluster-autoscaler = {
-
-      namespace = "kube-system"
-
-      serviceaccount = "cluster-autoscaler"
-
-      policy_arns = [
-
-        "arn:aws:iam::aws:policy/AutoScalingFullAccess"
-
-      ]
-
-    }
-
-    ebs-csi-controller = {
-
-      namespace = "kube-system"
-
-      serviceaccount = "ebs-csi-controller-sa"
-
-      policy_arns = [
-
-        "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
-
-      ]
-
-    }
-
-  }
-
-} 
-
-*/
